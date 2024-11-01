@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+
+    </head>
+    <body>
+        <h1>Pick a game</h1>
+        {% for game in games %} 
+            <li><a href="/game/{{ game.id }}">{{ game.name }}</a></li> 
+        {% endfor %} 
+    </body>
+</html>

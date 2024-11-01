@@ -9,14 +9,46 @@ class Player(models.Model):
 class Game(models.Model):
     name = models.CharField(max_length = 60, null=False)
     id = models.BigAutoField(primary_key=True)
-
-class Match(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    game = models.ForeignKey(to = Game, null = False, on_delete=models.CASCADE)
-    date = models.DateTimeField(default=timezone.now, null=False)
-    players = models.ManyToManyField(to = Player)
+    guild = models.BigIntegerField()
 
 class GamePlayer(models.Model):
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
-    ranking = models.IntegerField(default=25)
+    
+    def mu(self):
+        last_match = Match.objects.filter(matchplayer__gameplayer=self, finished=True).latest("date_finished")
+        if(last_match == None):
+            return 25.00
+        else:
+            return last_match.mu
+
+    def sigma(self):
+        last_match = Match.objects.filter(matchplayer__gameplayer=self, finished=True).latest("date_finished")
+        if(last_match == None):
+            return 25.00
+        else:
+            return last_match.sigma
+
+class MatchPlayer(models.Model):
+    gameplayer = models.ForeignKey(to=GamePlayer, on_delete=models.CASCADE)
+    match = models.ForeignKey(to="Match", on_delete=models.CASCADE)
+    rank = models.IntegerField()
+    mu = models.FloatField()
+    sigma = models.FloatField()
+
+class Match(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game = models.ForeignKey(to = Game, null = False, on_delete=models.CASCADE)
+    date_started = models.DateTimeField(default=timezone.now, null=False)
+    date_finished = models.DateTimeField(null=True)
+    players = models.ManyToManyField(to = GamePlayer, through=MatchPlayer)
+    finished = models.BooleanField(default = False)
+
+    def finish(self):
+        if(self.finished):
+            return
+        else:
+            self.finished = True
+            self.date_finished = timezone.now()
+            
+

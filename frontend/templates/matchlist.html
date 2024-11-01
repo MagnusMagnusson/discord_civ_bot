@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+
+    </head>
+    <body>
+        <h1>{{ game.name }}</h1>
+        <h3>Latest Matches</h3>
+        {% for match in matches %} 
+            <li><a href="/match/{{ match.id }}">{{ match.date }}</a></li> 
+        {% endfor %} 
+    </body>
+</html>
