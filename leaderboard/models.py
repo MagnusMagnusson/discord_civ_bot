@@ -15,19 +15,21 @@ class GamePlayer(models.Model):
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     
+    @property    
     def mu(self):
-        last_match = Match.objects.filter(matchplayer__gameplayer=self, finished=True).latest("date_finished")
-        if(last_match == None):
+        last_match = Match.objects.filter(matchplayer__gameplayer=self, finished=True)
+        if(len(last_match) == 0):
             return 25.00
         else:
-            return last_match.mu
+            return last_match.latest("date_finished").mu
 
+    @property
     def sigma(self):
-        last_match = Match.objects.filter(matchplayer__gameplayer=self, finished=True).latest("date_finished")
-        if(last_match == None):
-            return 25.00
+        last_match = Match.objects.filter(matchplayer__gameplayer=self, finished=True)
+        if(len(last_match) == 0):
+            return 8.333
         else:
-            return last_match.sigma
+            return last_match.latest("date_finished").sigma
 
 class MatchPlayer(models.Model):
     gameplayer = models.ForeignKey(to=GamePlayer, on_delete=models.CASCADE)
