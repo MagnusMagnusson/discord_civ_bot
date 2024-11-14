@@ -1,2 +1,3 @@
 env/*
 bot/secret.py
+db.sqlite3
