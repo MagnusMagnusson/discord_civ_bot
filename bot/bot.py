@@ -7,6 +7,7 @@ from discord.ext import commands
 from leaderboard.models import Match
 from .django_commands import registerMatch, createLeague, listLeagues, printRanking, addPlayerToLeague, validate_match_payload, getMatchFromMessage, finish_match
 from asgiref.sync import sync_to_async
+from .secret import BOT_AUTH_TOKEN
 
 
 print("Loaded Discord")
@@ -91,4 +92,4 @@ async def register_error(ctx, error):
 
 
 def start():
-    bot.run('XXX')
+    bot.run(BOT_AUTH_TOKEN)

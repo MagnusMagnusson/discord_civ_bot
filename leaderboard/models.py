@@ -4,6 +4,9 @@ from django.db import models
 from django.utils import timezone
 from trueskill import Rating, rate
 
+DEFAULT_MU = 25
+DEFAULT_SIGMA = DEFAULT_MU / 3
+
 class Player(models.Model):
     name = models.CharField(max_length=60, null=False)
     id = models.CharField(max_length=256, null=False, primary_key=True)
@@ -21,7 +24,7 @@ class GamePlayer(models.Model):
     def mu(self):
         last_match = MatchPlayer.objects.filter(gameplayer=self, match__finished=True)
         if(len(last_match) == 0):
-            return 25.00
+            return DEFAULT_MU
         else:
             return last_match.latest("match__date_finished").mu
 
@@ -29,7 +32,7 @@ class GamePlayer(models.Model):
     def sigma(self):
         last_match = MatchPlayer.objects.filter(gameplayer=self, match__finished=True)
         if(len(last_match) == 0):
-            return 8.333
+            return DEFAULT_SIGMA
         else:
             print("Here!")
             print(last_match)
@@ -38,9 +41,6 @@ class GamePlayer(models.Model):
             print(last_match.latest("match__date_finished").sigma)
             return last_match.latest("match__date_finished").sigma
     
-
-
-
 
 class MatchPlayer(models.Model):
     gameplayer = models.ForeignKey(to=GamePlayer, on_delete=models.CASCADE)
@@ -52,14 +52,14 @@ class MatchPlayer(models.Model):
     def changeMu(self):
         previous_match = MatchPlayer.objects.filter(gameplayer=self.gameplayer, match__finished=True).exclude(match = self.match)
         if(len(previous_match) == 0):
-            return self.mu - 25.00 
+            return self.mu - DEFAULT_MU
         else:
             return self.mu - previous_match.latest("match__date_finished").mu
 
     def changeSigma(self):
         previous_match = MatchPlayer.objects.filter(gameplayer=self.gameplayer, match__finished=True).exclude(match = self.match)
         if(len(previous_match) == 0):
-            return self.sigma - 8.333         
+            return self.sigma - DEFAULT_SIGMA        
         else:
             return self.mu - previous_match.latest("match__date_finished").sigma
 
