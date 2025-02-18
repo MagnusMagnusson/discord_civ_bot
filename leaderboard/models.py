@@ -73,26 +73,29 @@ class Match(models.Model):
     message_id = models.CharField(null = True, max_length=256)
 
     def finish(self):
-        if(self.finished):
+        if self.finished:
             return
-        else:
-            players = self.matchplayer_set.all()
-            ratings = [(Rating(x.mu, x.sigma),) for x in players]
-            rankings = [x.rank for x in players]
-            print(ratings)
-            print(rankings)
-            new_rankings = rate(ratings, rankings)
-            i = 0
-            print(new_rankings)
-            for new_rank in new_rankings:
-                player = players[i]
-                player.mu = new_rank[0].mu
-                player.sigma = new_rank[0].sigma
-                player.save()
-                i += 1
-            self.finished = True
-            self.date_finished = timezone.now()
-            self.save()
+        
+        players = self.matchplayer_set.all()
+        ratings = [(Rating(x.mu, x.sigma),) for x in players]
+        rankings = [x.rank for x in players]
+        
+        new_rankings = rate(ratings, rankings)
+        
+        print(ratings)
+        print(rankings)
+        print(new_rankings)
+        
+        # Update and commit player ratings
+        for new_rank, player in zip(new_rankings, players):
+            player.mu = new_rank[0].mu
+            player.sigma = new_rank[0].sigma
+            player.save()
+            
+        self.finished = True
+        self.date_finished = timezone.now()
+        self.save()
+        
     def results(self):
         players = self.matchplayer_set.all().order_by("rank")
         return [x for x in players]
