@@ -92,6 +92,14 @@ def addPlayerToLeague(member, name, guild):
             return member.mention + " has joined the league " + name
 
 @sync_to_async
+def recalculateMatch(match_id, name, guild):
+    league = Game.objects.filter(guild = guild.id, name = name)
+    if(len(league) == 0):
+        return [False, "League "+name+" does not exist."]
+    return [True, league[0].recalculate(match_id)]
+   
+
+@sync_to_async
 def  registerMatch(guild, name, members):
     league = Game.objects.filter(guild = guild.id, name = name)
     if(len(league) == 0):
@@ -170,3 +178,21 @@ def finish_match(match):
 def getMatchFromMessage(message_id):
     match = Match.objects.filter(message_id = message_id)
     return match[0]
+
+@sync_to_async
+def listMatches(guild, league_name):
+    league = Game.objects.filter(guild = guild.id, name = league_name)
+    if not league:
+        return [True, "The league " + league_name + " does not exist"] 
+    else:
+        league = league[0]
+    matches = Match.objects.filter(game = league)
+    if(len(matches) == 0):
+        return [True, "No matches have been played under the league " + league.name]
+    else:
+        string = "The following matches exist for league " + league.name +"\n"
+        for match in matches:
+            string = string + "ID: " + str(match.id) + ": " + str(match.date_started) + " to " + str(match.date_finished) + "\n"
+        return [True, string]
+
+        

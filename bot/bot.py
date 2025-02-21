@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from leaderboard.models import Match
-from .django_commands import registerMatch, createLeague, listLeagues, printRanking, addPlayerToLeague, validate_match_payload, getMatchFromMessage, finish_match
+from .django_commands import recalculateMatch, listMatches, registerMatch, createLeague, listLeagues, printRanking, addPlayerToLeague, validate_match_payload, getMatchFromMessage, finish_match
 from asgiref.sync import sync_to_async
 from .secret import BOT_AUTH_TOKEN
 
@@ -18,6 +18,10 @@ bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"), intents=inten
 @bot.command()
 async def ping(ctx):
     await ctx.send('pong')
+
+@bot.command()
+async def pingu(ctx):
+    await ctx.send('NOOT NOOT!')
 
 @bot.group()
 async def league(ctx):
@@ -38,6 +42,12 @@ async def list(ctx):
     await ctx.send(message)
 
 @league.command()
+async def recalculate(ctx, league = None, match_id = None):
+    message = await recalculateMatch(match_id, league, ctx.guild)
+    await ctx.send(message[1])
+
+
+@league.command()
 async def ranking(ctx, name, page = 0):
     message = await printRanking(bot, ctx.guild, name, page)
     await ctx.send(message, allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
@@ -53,6 +63,14 @@ async def join(ctx, name):
     message = await addPlayerToLeague(ctx.author, name, ctx.guild)
     await ctx.send(message)
 
+@match.command(pass_context=True)
+async def list(ctx, league = None):
+    if(not league):
+        await ctx.send("Please specify a league")
+        return
+    message = await listMatches( ctx.guild, league)
+    if(message[0]):
+        mess = await ctx.send(message[1])
 
 @match.command(pass_context=True)
 async def register(ctx, league, *members: discord.User):
