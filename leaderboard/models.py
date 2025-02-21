@@ -19,6 +19,7 @@ class Game(models.Model):
     def recalculate(self, fromMatchId):
             try:
                 match = Match.objects.filter(id = fromMatchId)
+                string = ""
                 if match.count() == 1:  # Ensure we have exactly one match
                     invalid_players = set()
                     invalid_matches = set()
@@ -56,9 +57,9 @@ class Game(models.Model):
 
                     # Second Pass: Recalculate all invalid matches
                     for match in sorted(invalid_matches, key=lambda m: m.date_finished or timezone.now()):
-                        match.recalculate()
+                        string += str(match.recalculate()) + "\n"
 
-                    return "Recalculated " + str(len(seen_matches)) + " matches."
+                    return "Recalculated " + str(len(seen_matches)) + " matches.\n"+string
                 else:
                     return "Math ID not found"
             except ex:
@@ -220,3 +221,5 @@ class Match(models.Model):
             
         self.finished = True
         self.save()
+
+        return [(p.gameplayer.player.name, p.mu, p.sigma) for p in players]
