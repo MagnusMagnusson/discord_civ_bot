@@ -63,33 +63,37 @@ def getRanking(guild, name):
         return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu} for x in players]
 
 @sync_to_async
-def addPlayerToLeague(member, name, guild):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
-        return "League "+name+" does not exist, and so you cannot join it\nYou can list all leagues on the server with '!league list'"
+def addPlayerToLeague(member, name: str, guild) -> str:
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild.id, name = name)
+        if len(league) == 0:
+            return f"There are more than one league with the name {name}. Use the same case narrow the search to the correct one."
+    if len(league) == 0:
+        return f"League {name} does not exist, and so you cannot join it\nYou can list all leagues on the server with '!league list'"
     player = league[0].gameplayer_set.filter(player_id = member.id)
-    if(len(player) == 1):
+    if len(player) == 1:
         return "You already belong to this league"
-    else:
-        try:
-            p = Player.objects.filter(id = member.id)
-            if(len(p) == 0):
-                p = Player()
-                p.id = member.id
-                p.name = member.name
-                p.save()
-            else: 
-                p = p[0]
-            gp = GamePlayer()
-            gp.player = p
-            gp.game = league[0]
-            gp.save()
-            league[0].gameplayer_set.add(gp)
-        except Exception as e:
-            print(e)
-            return "Unexpected error. Sorry!"
-        else:
-            return member.mention + " has joined the league " + name
+    
+    try:
+        p = Player.objects.filter(id = member.id)
+        if len(p) == 0:
+            p = Player()
+            p.id = member.id
+            p.name = member.name
+            p.save()
+        else: 
+            p = p[0]
+        gp = GamePlayer()
+        gp.player = p
+        gp.game = league[0]
+        gp.save()
+        league[0].gameplayer_set.add(gp)
+    except Exception as e:
+        print(e)
+        return "Unexpected error. Sorry!"
+    
+    return member.mention + " has joined the league " + name
 
 @sync_to_async
 def recalculateMatch(match_id, name, guild):
@@ -161,18 +165,18 @@ def validate_match_payload(payload, reaction_users):
 def finish_match(match):
     if(match.finished):
         return
-    else:
-        league = match.game.name
-        match.finish()
-        results = match.results()
-        m = "# "+league + " MATCH OVER\n"
-        m += " ===================== \n"
-        for player in results :
-            print(player.changeMu())
-            sign = "+" if player.changeMu() >= 0 else ""
-            m += str(player.rank + 1) + ". " + player.gameplayer.player.name + ". New ranking:  "'{0:.2f}'.format(player.gameplayer.mu) + " (" + sign + '{0:.2f}'.format(player.changeMu()) + ") \n"
-        m += "\n===================== \n"
-        return m
+        
+    league = match.game.name
+    match.finish()
+    results = match.results()
+    m = f"# {league} MATCH OVER\n"
+    m += " ===================== \n"
+    for i, player in enumerate(results, 1):
+        print(player.changeMu())
+        sign = "+" if player.changeMu() >= 0 else ""
+        m += f"{i}. {player.gameplayer.player.name}. New ranking: {player.gameplayer.mu:.2f} ({sign}{player.changeMu():.2f})\n"
+    m += "\n===================== \n"
+    return m
 
 @sync_to_async
 def getMatchFromMessage(message_id):
