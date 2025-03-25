@@ -1,7 +1,11 @@
 from datetime import datetime
+from typing import Any
+
 from leaderboard.models import Game, GamePlayer, Match, MatchPlayer, Player
 from asgiref.sync import sync_to_async
 import math
+
+PAGE_SIZE = 25
 
 @sync_to_async
 def createLeague(name, guild):
@@ -35,32 +39,35 @@ def listLeagues(guild):
 
 async def printRanking(bot, guild, name, page):
     players = await getRanking(guild, name)
-    if(players == None):
-        return "The designated League '"+name+"' does not exist on this server"
-    else:
-        message = "# "+name+ " rankings ("+str(1+page)+"/"+str(math.ceil(len(players)/25))+")\n"
-        message += "====================================== \n"
-        message += "Rank | Name | Rating | Sigma | Matches\n"
-        i =  page * 25
-        for player in players[25*page : 25*(page + 1)]:
-            i += 1
-            member = await bot.fetch_user(player["id"])
-            message +=str(i) + " | " + member.display_name + " | " + '{0:.2f}'.format(player["mu"]) + " | " + '{0:.2f}'.format(player["sigma"]) + "\n"
-        message += "======================================"
-        return message
+    if players is None:
+        return f"The designated League '{name}' does not exist on this server."
+    
+    message = f"# {name} rankings ({str(1+page)}/{str(math.ceil(len(players)/PAGE_SIZE))})\n"
+    message += "====================================== \n"
+    message += "Rank | Name | Rating | Sigma | Matches\n"
+    
+    players = players[PAGE_SIZE*page:PAGE_SIZE*(page+1)]
+    members = [await bot.fetch_user(p["id"]) for p in players]
+    max_name_size = max([len(m.display_name) for m in members])
+    for i, (player, member) in enumerate(zip(players, members), PAGE_SIZE*page + 1):
+        message += f"{str(i)} | {member.display_name:>{max_name_size}} | {player['mu']:.2f} | {player['sigma']:.2f}\n"
+    message += "======================================"
+    return message
 
 @sync_to_async
-def getRanking(guild, name):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
+def getRanking(guild, name: str) -> list[dict[str, Any]] | None:
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild.id, name = name)
+    if len(league) == 0:
         return None
-    else:
-        league = league[0]
-        players = league.gameplayer_set.all()
-        players = sorted(players, key=lambda t: t.sigma)
-        players = sorted(players, key=lambda t: -t.mu)
+    
+    league = league[0]
+    players = league.gameplayer_set.all()
+    players = sorted(players, key=lambda t: t.sigma)
+    players = sorted(players, key=lambda t: -t.mu)
 
-        return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu} for x in players]
+    return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu} for x in players]
 
 @sync_to_async
 def addPlayerToLeague(member, name: str, guild) -> str:
