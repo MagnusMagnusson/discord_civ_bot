@@ -6,7 +6,7 @@ import math
 @sync_to_async
 def createLeague(name, guild):
     leagues = len(Game.objects.filter(guild = guild.id))
-    if(leagues >= 1):
+    if(leagues >= 100):
         return "Sorry, but each server can only create 100 leagues."
     elif(len(Game.objects.filter(guild = guild.id, name = name)) > 0):
         return "The league '"+name+"' already exists on this server"

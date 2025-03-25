@@ -32,7 +32,6 @@ async def match(ctx):
     pass
 
 @league.command()
-@commands.has_permissions(administrator=True)
 async def create(ctx, name):
     await ctx.send(await createLeague(name, ctx.guild))
 
