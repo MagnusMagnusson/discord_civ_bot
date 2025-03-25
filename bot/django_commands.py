@@ -104,17 +104,23 @@ def addPlayerToLeague(member, name: str, guild) -> str:
 
 @sync_to_async
 def recalculateMatch(match_id, name, guild):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
-        return [False, "League "+name+" does not exist."]
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        return [False, f"Too many leagues with name {name}. Use correct casing to narrow the search."]
+    if len(league) == 0:
+        return [False, f"League {name} does not exist."]
     return [True, league[0].recalculate(match_id)]
    
 
 @sync_to_async
 def  registerMatch(guild, name, members):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
-        return [False, "League "+name+" does not exist"]
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild.id, name = name)
+        if len(league) == 0:
+            return [False, f"There are more than one leagues with the name {name}. Use the same case narrow the search to the correct one."]
+    if len(league) == 0:
+        return [False, f"League {name} does not exist"]
     gamePlayers = []
     for m in members:
         p = Player.objects.filter(id = m.id)
@@ -192,7 +198,11 @@ def getMatchFromMessage(message_id):
 
 @sync_to_async
 def listMatches(guild, league_name):
-    league = Game.objects.filter(guild = guild.id, name = league_name)
+    league = Game.objects.filter(guild = guild.id, name__iexact = league_name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild, name = league_name)
+        if not league:
+            return [True, f"Too many leagues with name {league_name}. Use correct casing to narrow the search."]
     if not league:
         return [True, "The league " + league_name + " does not exist"] 
     else:
