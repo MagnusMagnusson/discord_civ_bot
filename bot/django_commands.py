@@ -1,7 +1,14 @@
 from datetime import datetime
+from email.header import Header
+from typing import Any
+
+from django.db.backends.ddl_references import Columns
+
 from leaderboard.models import Game, GamePlayer, Match, MatchPlayer, Player
 from asgiref.sync import sync_to_async
 import math
+
+PAGE_SIZE = 25
 
 @sync_to_async
 def createLeague(name, guild):
@@ -35,75 +42,98 @@ def listLeagues(guild):
 
 async def printRanking(bot, guild, name, page):
     players = await getRanking(guild, name)
-    if(players == None):
-        return "The designated League '"+name+"' does not exist on this server"
-    else:
-        message = "# "+name+ " rankings ("+str(1+page)+"/"+str(math.ceil(len(players)/25))+")\n"
-        message += "====================================== \n"
-        message += "Rank | Name | Rating | Sigma | Matches\n"
-        i =  page * 25
-        for player in players[25*page : 25*(page + 1)]:
-            i += 1
-            member = await bot.fetch_user(player["id"])
-            message +=str(i) + " | " + member.display_name + " | " + '{0:.2f}'.format(player["mu"]) + " | " + '{0:.2f}'.format(player["sigma"]) + "\n"
-        message += "======================================"
-        return message
+    if players is None:
+        return f"The designated League '{name}' does not exist on this server."
+    
+    message = f"# {name} rankings ({str(1+page)}/{str(math.ceil(len(players)/PAGE_SIZE))})\n"
+
+    players = players[PAGE_SIZE*page:PAGE_SIZE*(page+1)]
+    members = [await bot.fetch_user(p["id"]) for p in players]
+    max_name_size = max([len(m.display_name) for m in members])
+    
+    header = f"Rank | {'Name':^{max_name_size}} | Rating | Sigma | Matches"
+    divider = '='*len(header)
+    separator = '-'*len(header)
+    columns = [i for i, c in enumerate(header) if c == '|']
+    for c in columns:
+        separator = separator[:c] + '+' + separator[c+1:]
+    
+    message += f"```{divider}\n"
+    message += f"{header}\n"
+    message += f"{separator}\n"
+    
+    for i, (player, member) in enumerate(zip(players, members), PAGE_SIZE*page + 1):
+        message += f"{i:>4} | {member.display_name:^{max_name_size}} | {player['mu']:^6.2f} | {player['sigma']:^5.2f}\n"
+    message += f"{divider}```"
+    return message
 
 @sync_to_async
-def getRanking(guild, name):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
+def getRanking(guild, name: str) -> list[dict[str, Any]] | None:
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild.id, name = name)
+    if len(league) == 0:
         return None
-    else:
-        league = league[0]
-        players = league.gameplayer_set.all()
-        players = sorted(players, key=lambda t: t.sigma)
-        players = sorted(players, key=lambda t: -t.mu)
+    
+    league = league[0]
+    players = league.gameplayer_set.all()
+    players = sorted(players, key=lambda t: t.sigma)
+    players = sorted(players, key=lambda t: -t.mu)
 
-        return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu} for x in players]
+    return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu} for x in players]
 
 @sync_to_async
-def addPlayerToLeague(member, name, guild):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
-        return "League "+name+" does not exist, and so you cannot join it\nYou can list all leagues on the server with '!league list'"
+def addPlayerToLeague(member, name: str, guild) -> str:
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild.id, name = name)
+        if len(league) == 0:
+            return f"There are more than one league with the name {name}. Use the same case narrow the search to the correct one."
+    if len(league) == 0:
+        return f"League {name} does not exist, and so you cannot join it\nYou can list all leagues on the server with '!league list'"
     player = league[0].gameplayer_set.filter(player_id = member.id)
-    if(len(player) == 1):
+    if len(player) == 1:
         return "You already belong to this league"
-    else:
-        try:
-            p = Player.objects.filter(id = member.id)
-            if(len(p) == 0):
-                p = Player()
-                p.id = member.id
-                p.name = member.name
-                p.save()
-            else: 
-                p = p[0]
-            gp = GamePlayer()
-            gp.player = p
-            gp.game = league[0]
-            gp.save()
-            league[0].gameplayer_set.add(gp)
-        except Exception as e:
-            print(e)
-            return "Unexpected error. Sorry!"
-        else:
-            return member.mention + " has joined the league " + name
+    
+    try:
+        p = Player.objects.filter(id = member.id)
+        if len(p) == 0:
+            p = Player()
+            p.id = member.id
+            p.name = member.name
+            p.save()
+        else: 
+            p = p[0]
+        gp = GamePlayer()
+        gp.player = p
+        gp.game = league[0]
+        gp.save()
+        league[0].gameplayer_set.add(gp)
+    except Exception as e:
+        print(e)
+        return "Unexpected error. Sorry!"
+    
+    return member.mention + " has joined the league " + name
 
 @sync_to_async
 def recalculateMatch(match_id, name, guild):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
-        return [False, "League "+name+" does not exist."]
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        return [False, f"Too many leagues with name {name}. Use correct casing to narrow the search."]
+    if len(league) == 0:
+        return [False, f"League {name} does not exist."]
     return [True, league[0].recalculate(match_id)]
    
 
 @sync_to_async
 def  registerMatch(guild, name, members):
-    league = Game.objects.filter(guild = guild.id, name = name)
-    if(len(league) == 0):
-        return [False, "League "+name+" does not exist"]
+    league = Game.objects.filter(guild = guild.id, name__iexact = name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild.id, name = name)
+        if len(league) == 0:
+            return [False, f"There are more than one leagues with the name {name}. Use the same case narrow the search to the correct one."]
+    if len(league) == 0:
+        return [False, f"League {name} does not exist"]
     gamePlayers = []
     for m in members:
         p = Player.objects.filter(id = m.id)
@@ -161,18 +191,18 @@ def validate_match_payload(payload, reaction_users):
 def finish_match(match):
     if(match.finished):
         return
-    else:
-        league = match.game.name
-        match.finish()
-        results = match.results()
-        m = "# "+league + " MATCH OVER\n"
-        m += " ===================== \n"
-        for player in results :
-            print(player.changeMu())
-            sign = "+" if player.changeMu() >= 0 else ""
-            m += str(player.rank + 1) + ". " + player.gameplayer.player.name + ". New ranking:  "'{0:.2f}'.format(player.gameplayer.mu) + " (" + sign + '{0:.2f}'.format(player.changeMu()) + ") \n"
-        m += "\n===================== \n"
-        return m
+        
+    league = match.game.name
+    match.finish()
+    results = match.results()
+    m = f"# {league} MATCH OVER\n"
+    m += " ===================== \n"
+    for i, player in enumerate(results, 1):
+        print(player.changeMu())
+        sign = "+" if player.changeMu() >= 0 else ""
+        m += f"{i}. {player.gameplayer.player.name}. New ranking: {player.gameplayer.mu:.2f} ({sign}{player.changeMu():.2f})\n"
+    m += "\n===================== \n"
+    return m
 
 @sync_to_async
 def getMatchFromMessage(message_id):
@@ -181,7 +211,11 @@ def getMatchFromMessage(message_id):
 
 @sync_to_async
 def listMatches(guild, league_name):
-    league = Game.objects.filter(guild = guild.id, name = league_name)
+    league = Game.objects.filter(guild = guild.id, name__iexact = league_name)
+    if len(league) > 1:
+        league = Game.objects.filter(guild = guild, name = league_name)
+        if not league:
+            return [True, f"Too many leagues with name {league_name}. Use correct casing to narrow the search."]
     if not league:
         return [True, "The league " + league_name + " does not exist"] 
     else:
