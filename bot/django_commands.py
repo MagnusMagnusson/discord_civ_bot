@@ -68,7 +68,7 @@ async def printRanking(bot, guild, name, page):
     return message
 
 @sync_to_async
-def getRanking(guild, name: str) -> list[dict[str, Any]] | None:
+def getRanking(guild, name: str):
     league = Game.objects.filter(guild = guild.id, name__iexact = name)
     if len(league) > 1:
         league = Game.objects.filter(guild = guild.id, name = name)
