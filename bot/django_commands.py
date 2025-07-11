@@ -1,5 +1,8 @@
 from datetime import datetime
+from email.header import Header
 from typing import Any
+
+from django.db.backends.ddl_references import Columns
 
 from leaderboard.models import Game, GamePlayer, Match, MatchPlayer, Player
 from asgiref.sync import sync_to_async
@@ -43,15 +46,25 @@ async def printRanking(bot, guild, name, page):
         return f"The designated League '{name}' does not exist on this server."
     
     message = f"# {name} rankings ({str(1+page)}/{str(math.ceil(len(players)/PAGE_SIZE))})\n"
-    message += "====================================== \n"
-    message += "Rank | Name | Rating | Sigma | Matches\n"
-    
+
     players = players[PAGE_SIZE*page:PAGE_SIZE*(page+1)]
     members = [await bot.fetch_user(p["id"]) for p in players]
     max_name_size = max([len(m.display_name) for m in members])
+    
+    header = f"Rank | {'Name':^{max_name_size}} | Rating | Sigma | Matches"
+    divider = '='*len(header)
+    separator = '-'*len(header)
+    columns = [i for i, c in enumerate(header) if c == '|']
+    for c in columns:
+        separator = separator[:c] + '+' + separator[c+1:]
+    
+    message += f"```{divider}\n"
+    message += f"{header}\n"
+    message += f"{separator}\n"
+    
     for i, (player, member) in enumerate(zip(players, members), PAGE_SIZE*page + 1):
-        message += f"{str(i)} | {member.display_name:>{max_name_size}} | {player['mu']:.2f} | {player['sigma']:.2f}\n"
-    message += "======================================"
+        message += f"{i:>4} | {member.display_name:^{max_name_size}} | {player['mu']:^6.2f} | {player['sigma']:^5.2f}\n"
+    message += f"{divider}```"
     return message
 
 @sync_to_async
