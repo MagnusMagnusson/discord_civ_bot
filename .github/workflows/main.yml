@@ -1,6 +1,7 @@
 name: Deploy
 
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
 
 jobs:
   Deploy:
@@ -8,21 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v2 
+      - uses: actions/checkout@v2
+
       - name: Build & Deploy
         env:
-            PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-            HOSTNAME: ${{secrets.SSH_HOST}}
-            USER_NAME: ${{secrets.SSH_USER}}
-      
-        run: |
-          echo "$PRIVATE_KEY" > private_key && chmod 400 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} '
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOSTNAME: ${{ secrets.SSH_HOST }}
+          USER_NAME: ${{ secrets.SSH_USER }}
 
-              # Now we have got the access of EC2 and we will start the deploy .
-              cd discord_civ_bot &&
-              git pull &&
-              source env/bin/activate &&
-              chmod +x restart &&
-              ./restart
-              '
+        run: |
+          echo "$PRIVATE_KEY" > private_key
+          chmod 400 private_key
+
+          ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} << 'EOF'
+            cd discord_civ_bot
+            git pull
+            source env/bin/activate
+            chmod +x restart
+            ./restart
+          EOF
