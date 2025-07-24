@@ -21,7 +21,7 @@ jobs:
           echo "$PRIVATE_KEY" > private_key
           chmod 400 private_key
 
-          ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} << 'EOF'
+          ssh -i private_key ${USER_NAME}@${HOSTNAME} << 'EOF'
             cd discord_civ_bot
             git pull
             source env/bin/activate
