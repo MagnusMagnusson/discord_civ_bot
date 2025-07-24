@@ -36,7 +36,6 @@ def listLeagues(guild):
     else:
         for league in leagues:
             message += "* "+ league.name+" | Members:" + str(len(league.gameplayer_set.all())) + ", Matches: "+ str(len(league.match_set.all())) + "\n"
-        print(message)
         return message
 
 
@@ -63,7 +62,7 @@ async def printRanking(bot, guild, name, page):
     message += f"{separator}\n"
     
     for i, (player, member) in enumerate(zip(players, members), PAGE_SIZE*page + 1):
-        message += f"{i:>4} | {member.display_name:^{max_name_size}} | {player['mu']:^6.2f} | {player['sigma']:^5.2f}\n"
+        message += f"{i:>4} | {member.display_name:^{max_name_size}} | {player['mu']:^6.2f} | {player['sigma']:^5.2f} | {player['matches']}\n"
     message += f"{divider}```"
     return message
 
@@ -80,7 +79,7 @@ def getRanking(guild, name: str):
     players = sorted(players, key=lambda t: t.sigma)
     players = sorted(players, key=lambda t: -t.mu)
 
-    return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu} for x in players]
+    return [{"id" : x.player_id, "sigma": x.sigma, "mu": x.mu, "matches": len(x.matches())} for x in players]
 
 @sync_to_async
 def addPlayerToLeague(member, name: str, guild) -> str:
@@ -168,20 +167,13 @@ def  registerMatch(guild, name, members):
 @sync_to_async
 def validate_match_payload(payload, reaction_users):
     message = payload.message_id
-    print(message)
     match = Match.objects.filter(finished = False, message_id = message)
-    print(match)
     if(len(match) == 1):
         match = match[0]
         matchPlayers = match.matchplayer_set.all()
         players = [str(x.gameplayer.player.id) for x in matchPlayers]
         needed_votes = math.ceil((len(players) + 0.5) / 2)
-        print("Need " + str(needed_votes) + " votes")
-        print(players)
-        print(payload.member.id)
         if(str(payload.member.id) in players):
-            print("Players was a member of match")
-            print("Need " + str(needed_votes) + " votes")
             valid_votes = [x for x in players if x in reaction_users]
             if(len(valid_votes) >= needed_votes):
                 return True
@@ -198,7 +190,6 @@ def finish_match(match):
     m = f"# {league} MATCH OVER\n"
     m += " ===================== \n"
     for i, player in enumerate(results, 1):
-        print(player.changeMu())
         sign = "+" if player.changeMu() >= 0 else ""
         m += f"{i}. {player.gameplayer.player.name}. New ranking: {player.gameplayer.mu:.2f} ({sign}{player.changeMu():.2f})\n"
     m += "\n===================== \n"

@@ -5,3 +5,8 @@ db.sqlite3
 .idea
 .vscode
 __pycache__
+version.txt
+pid
+cmd
+restart
+*.pyc

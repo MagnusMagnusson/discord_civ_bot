@@ -1,5 +1,7 @@
 #coding:utf8
 from audioop import add
+from base64 import encode
+from datetime import datetime, timedelta
 from venv import create
 import discord
 from discord.ext import commands
@@ -14,6 +16,12 @@ print("Loaded Discord")
 intents = discord.Intents.all()
 intents.message_content = True
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"), intents=intents)
+starttime = datetime.now()
+print("Bot started at "+ str(starttime))
+import os
+with open("pid", "w") as f:
+    f.write(str(os.getpid()))
+
 
 @bot.command()
 async def ping(ctx):
@@ -41,6 +49,22 @@ async def list(ctx):
     await ctx.send(message)
 
 @league.command()
+async def version(ctx):
+    try:
+        now = datetime.now()
+        delta = abs(now - starttime)
+        days = delta.days
+        hours, remainder = divmod(delta.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        date = datetime.now() - timedelta(days=2, hours=5, minutes=30)
+        f = open("version.txt")
+        txt = "Version " + str(f.read()) + "\n"
+        txt += "Uptime is " + str(f"{days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
+        await ctx.send(txt)
+    except Exception as ex:
+        await ctx.send("I cannot find my version right now.")
+
+@league.command()
 async def recalculate(ctx, league = None, match_id = None):
     message = await recalculateMatch(match_id, league, ctx.guild)
     await ctx.send(message[1])
@@ -52,9 +76,9 @@ async def ranking(ctx, name, page = 0):
     await ctx.send(message, allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
 
 @league.command()
-async def botJoin(ctx):
+async def botJoin(ctx, league):
     await ctx.send("I get to play!!!")
-    message = await addPlayerToLeague(bot.user, "civ6", ctx.guild)
+    message = await addPlayerToLeague(bot.user, league, ctx.guild)
     await ctx.send(message)
 
 @league.command()

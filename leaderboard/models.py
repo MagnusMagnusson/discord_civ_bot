@@ -62,7 +62,7 @@ class Game(models.Model):
                     return "Recalculated " + str(len(seen_matches)) + " matches.\n"+string
                 else:
                     return "Math ID not found"
-            except ex:
+            except Exception as ex:
                 print(ex)
                 return "Failed to recalculate due to unexpected error. I hope the league isn't irrepairably ruined now"
 
@@ -75,24 +75,20 @@ class GamePlayer(models.Model):
     def mu(self):
         last_match = MatchPlayer.objects.filter(gameplayer=self, match__finished=True)
         if(len(last_match) == 0):
-            print("NO MATCH; MEW")
             return DEFAULT_MU
         else:
-            print("GET OLD; MEEE")
             return last_match.latest("match__date_finished").mu
 
     @property
     def sigma(self):
-        last_match = MatchPlayer.objects.filter(gameplayer=self, match__finished=True)
-        if(len(last_match) == 0):
+        matches = self.matches()
+        if(len(matches) == 0):
             return DEFAULT_SIGMA
         else:
-            print("Here!")
-            print(last_match)
-            print(last_match.latest("match__date_finished"))
-            print(last_match.latest("match__date_finished").mu)
-            print(last_match.latest("match__date_finished").sigma)
-            return last_match.latest("match__date_finished").sigma
+            return matches.latest("match__date_finished").sigma
+
+    def matches(self):
+        return MatchPlayer.objects.filter(gameplayer=self, match__finished=True)
     
 
 class MatchPlayer(models.Model):
@@ -173,15 +169,8 @@ class Match(models.Model):
         players = self.matchplayer_set.all()
         ratings = [(Rating(x.lastMu, x.lastSigma),) for x in players]
         rankings = [x.rank for x in players]
-        
         new_rankings = rate(ratings, rankings)
-        
-        print("Old ratings")
-        print(ratings)
-        print(rankings)
-        print("New ratings")
-        print(new_rankings)
-        
+
         # Update and commit player ratings
         for new_rank, player in zip(new_rankings, players):
             player.mu = new_rank[0].mu
@@ -197,7 +186,6 @@ class Match(models.Model):
         return [x for x in players]     
 
     def recalculate(self):
-        print("RECALCULATING MATCH " + str(self.id))   
         if self.finished:
             return
         
@@ -206,12 +194,6 @@ class Match(models.Model):
         rankings = [x.rank for x in players]
         
         new_rankings = rate(ratings, rankings)
-        
-        print("Old ratings")
-        print(ratings)
-        print(rankings)
-        print("New ratings")
-        print(new_rankings)
         
         # Update and commit player ratings
         for new_rank, player in zip(new_rankings, players):
