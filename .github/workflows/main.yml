@@ -16,6 +16,7 @@ jobs:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           HOSTNAME: ${{ secrets.SSH_HOST }}
           USER_NAME: ${{ secrets.SSH_USER }}
+          RUN_NUMBER : ${{ github.run_number }}
 
         run: |
           echo "$PRIVATE_KEY" > private_key
@@ -25,7 +26,7 @@ jobs:
             cd discord_civ_bot
             git pull
             source env/bin/activate
-            echo "$(date +'%y').$(date +'%m').${GITHUB_RUN_NUMBER}" > version.txt
+            echo "$(date +'%y').$(date +'%m').${RUN_NUMBER}" > version.txt
             chmod +x restart
             ./restart
           EOF
